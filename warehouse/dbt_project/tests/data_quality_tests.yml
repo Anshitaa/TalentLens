@@ -1,0 +1,102 @@
+version: 2
+
+models:
+  - name: stg_employees
+    description: "Cleaned employee records from raw HRIS snapshot"
+    columns:
+      - name: employee_id
+        tests: [unique, not_null]
+      - name: department
+        tests:
+          - not_null
+          - accepted_values:
+              values: [Engineering, Sales, Finance, HR, Marketing, Operations, Legal, Product]
+      - name: job_level
+        tests:
+          - not_null
+          - accepted_values:
+              values: [IC1, IC2, IC3, IC4, IC5, M1, M2, M3, M4]
+      - name: job_level_type
+        tests:
+          - accepted_values:
+              values: [individual_contributor, manager, unknown]
+      - name: monthly_income
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 1000"
+      - name: job_satisfaction
+        tests:
+          - accepted_values:
+              values: [1, 2, 3, 4]
+      - name: performance_rating
+        tests:
+          - accepted_values:
+              values: [1, 2, 3, 4]
+      - name: hire_date
+        tests: [not_null]
+      - name: is_active
+        tests: [not_null]
+      - name: email
+        tests:
+          - not_null
+          - unique:
+              config:
+                severity: warn   # synthetic Faker emails collide at scale (>10K rows)
+
+  - name: stg_hiring_events
+    description: "Normalized hiring funnel stage transitions"
+    columns:
+      - name: event_id
+        tests: [unique, not_null]
+      - name: candidate_id
+        tests: [not_null]
+      - name: stage
+        tests:
+          - not_null
+          - accepted_values:
+              values: [APPLICATION, PHONE_SCREEN, INTERVIEW, OFFER, HIRE, REJECT]
+      - name: stage_order
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "between 1 and 5"
+
+  - name: dim_employee
+    description: "Business-facing employee dimension with peer-group enrichment"
+    columns:
+      - name: employee_id
+        tests: [unique, not_null]
+      - name: monthly_income
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+      - name: peer_median_income
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+              where: "is_active"
+      - name: annual_income
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "= monthly_income * 12"
+      - name: years_at_company
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+
+  - name: fact_hiring_funnel
+    description: "One row per candidate with full funnel timeline and outcome"
+    columns:
+      - name: funnel_id
+        tests: [unique, not_null]
+      - name: candidate_id
+        tests: [not_null]
+      - name: outcome
+        tests:
+          - accepted_values:
+              values: [hired, rejected, withdrawn, in_progress]
+      - name: days_to_screen
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              where: "days_to_screen is not null"

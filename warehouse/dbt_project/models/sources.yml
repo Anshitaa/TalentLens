@@ -1,0 +1,67 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    description: "Raw source data ingested from Mock HRIS API and synthetic generator"
+    freshness:
+      warn_after: {count: 2, period: hour}
+      error_after: {count: 6, period: hour}
+    loaded_at_field: _ingested_at
+    tables:
+      - name: hris_employee_snapshot
+        description: "Full employee roster from HRIS system (upserted hourly)"
+        columns:
+          - name: employee_id
+            tests: [unique, not_null]
+          - name: department
+            tests:
+              - not_null
+              - accepted_values:
+                  values: [Engineering, Sales, Finance, HR, Marketing, Operations, Legal, Product]
+          - name: job_level
+            tests:
+              - not_null
+              - accepted_values:
+                  values: [IC1, IC2, IC3, IC4, IC5, M1, M2, M3, M4]
+          - name: job_satisfaction
+            tests:
+              - accepted_values:
+                  values: [1, 2, 3, 4]
+          - name: performance_rating
+            tests:
+              - accepted_values:
+                  values: [1, 2, 3, 4]
+          - name: monthly_income
+            tests: [not_null]
+          - name: hire_date
+            tests: [not_null]
+
+      - name: employee_events
+        description: "HR events: hire, terminate, promote, manager_change, etc."
+        columns:
+          - name: event_id
+            tests: [unique, not_null]
+          - name: employee_id
+            tests: [not_null]
+          - name: event_type
+            tests:
+              - not_null
+              - accepted_values:
+                  values: [HIRE, TERMINATE, PROMOTE, MANAGER_CHANGE, SALARY_CHANGE,
+                           PERFORMANCE_REVIEW, ABSENCE, OVERTIME, TRAINING]
+          - name: event_date
+            tests: [not_null]
+
+      - name: hiring_funnel_events
+        description: "Candidate pipeline events from application to hire/reject"
+        columns:
+          - name: event_id
+            tests: [unique, not_null]
+          - name: candidate_id
+            tests: [not_null]
+          - name: stage
+            tests:
+              - not_null
+              - accepted_values:
+                  values: [APPLICATION, PHONE_SCREEN, INTERVIEW, OFFER, HIRE, REJECT]

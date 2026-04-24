@@ -1,0 +1,100 @@
+# docker-compose.override.yml — production-like local stack
+#
+# Adds the api and frontend services (built from source) on top of the
+# infrastructure services already defined in docker-compose.yml.
+#
+# Usage:
+#   docker-compose up -d                    # starts everything (base + override)
+#   docker-compose build api frontend       # rebuild app images after code changes
+#
+# The override file is merged automatically by docker-compose; no extra flags needed.
+
+services:
+
+  # ── FastAPI backend ──────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: talentlens-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://talentlens:talentlens@postgres:5432/talentlens
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/risk/summary"]
+      interval: 15s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+
+  # ── React frontend (Nginx) ───────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: talentlens-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+
+  # ── MLflow tracking server ───────────────────────────────────────────────────
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.12.1
+    container_name: talentlens-mlflow
+    restart: unless-stopped
+    command: >
+      mlflow server
+      --backend-store-uri /mlflow/mlruns
+      --default-artifact-root /mlflow/artifacts
+      --host 0.0.0.0
+      --port 5001
+    ports:
+      - "5001:5001"
+    volumes:
+      - ./mlruns:/mlflow/mlruns
+      - mlflow-artifacts:/mlflow/artifacts
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  # Resource caps on shared infrastructure services
+  postgres:
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+
+  kafka:
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+
+volumes:
+  mlflow-artifacts:
