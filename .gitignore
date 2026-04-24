@@ -1,0 +1,63 @@
+# Secrets — NEVER commit
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.so
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Generated data (regenerate with synthetic_generator.py)
+data/raw/
+
+# MLflow run artifacts (local tracking server state)
+mlruns/
+
+# dbt compiled artifacts + installed packages (run `dbt deps` to restore)
+warehouse/dbt_project/target/
+warehouse/dbt_project/logs/
+warehouse/dbt_project/dbt_packages/
+
+# Frontend dependencies
+frontend/node_modules/
+frontend/dist/
+
+# Spark JDBC driver (download via curl in RUNNING.md)
+spark/jars/
+
+# Generated ML/RAG binaries (rebuilt by running the training scripts)
+llm/rag/faiss_index.pkl
+llm/rag/faiss_index.index
+ml/**/*.pkl
+ml/**/*.joblib
+
+# Claude Code worktrees
+.claude/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/

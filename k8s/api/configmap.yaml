@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-config
+  namespace: talentlens
+data:
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  MLFLOW_TRACKING_URI: http://mlflow:5000
+  KAFKA_CONSUMER_GROUP_RISK_ENGINE: risk-engine-consumer
+  KAFKA_CONSUMER_GROUP_DASHBOARD: dashboard-consumer
+  KAFKA_CONSUMER_GROUP_AUDIT: audit-consumer

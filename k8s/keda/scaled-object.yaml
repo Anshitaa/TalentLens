@@ -1,0 +1,29 @@
+# ADR-004: HPA driven by Kafka consumer lag (not CPU) via KEDA
+#
+# Install KEDA first:
+#   helm repo add kedacore https://kedacore.github.io/charts
+#   helm install keda kedacore/keda --namespace keda --create-namespace
+#
+# This ScaledObject scales the api Deployment from 1→10 replicas
+# based on the lag of the risk-engine-consumer group on the
+# risk-score-updates topic.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: api-kafka-scaler
+  namespace: talentlens
+spec:
+  scaleTargetRef:
+    name: api
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  cooldownPeriod: 60
+  pollingInterval: 15
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: kafka.talentlens.svc.cluster.local:9092
+        consumerGroup: risk-engine-consumer
+        topic: risk-score-updates
+        lagThreshold: "100"          # scale up when lag exceeds 100 messages per replica
+        offsetResetPolicy: latest
