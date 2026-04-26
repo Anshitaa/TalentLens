@@ -7,7 +7,7 @@
 #
 # Prerequisites:
 #   brew install minikube kubectl helm
-#   minikube start --cpus 4 --memory 8192
+#   Docker Desktop must be running before you run this script.
 
 set -euo pipefail
 
@@ -23,7 +23,7 @@ warn()  { echo -e "${YELLOW}[warn]${NC} $*"; }
 
 # ── 1. Ensure minikube is running ─────────────────────────────────────────────
 info "Checking minikube..."
-if ! minikube status | grep -q "Running"; then
+if ! minikube status 2>/dev/null | grep -q "Running"; then
   info "Starting minikube (4 CPUs, 8 GB RAM)..."
   minikube start --cpus 4 --memory 8192 --driver docker
 fi
@@ -53,9 +53,13 @@ else
   info "KEDA already installed, skipping."
 fi
 
-# ── 6. Apply manifests ────────────────────────────────────────────────────────
+# ── 6. Namespace ─────────────────────────────────────────────────────────────
 info "Applying namespace..."
 kubectl apply -f k8s/namespace.yaml
+
+# ── 7. PostgreSQL (ConfigMap must come before StatefulSet) ───────────────────
+info "Applying postgres-init ConfigMap..."
+kubectl apply -f k8s/postgres/configmap.yaml
 
 info "Applying postgres..."
 kubectl apply -f k8s/postgres/secret.yaml
@@ -66,6 +70,7 @@ kubectl apply -f k8s/postgres/service.yaml
 info "Waiting for postgres to be ready..."
 kubectl rollout status statefulset/postgres -n talentlens --timeout=120s
 
+# ── 8. Kafka + Zookeeper ─────────────────────────────────────────────────────
 info "Applying kafka + zookeeper..."
 kubectl apply -f k8s/kafka/zookeeper.yaml
 kubectl apply -f k8s/kafka/kafka.yaml
@@ -75,11 +80,20 @@ kubectl rollout status statefulset/zookeeper -n talentlens --timeout=60s
 info "Waiting for kafka..."
 kubectl rollout status statefulset/kafka -n talentlens --timeout=120s
 
+# ── 9. Create Kafka topics ────────────────────────────────────────────────────
+info "Running kafka-init Job to create topics..."
+kubectl delete job kafka-init -n talentlens --ignore-not-found
+kubectl apply -f k8s/kafka/job-init.yaml
+info "Waiting for kafka-init Job to complete..."
+kubectl wait --for=condition=complete job/kafka-init -n talentlens --timeout=120s
+
+# ── 10. MLflow ───────────────────────────────────────────────────────────────
 info "Applying MLflow..."
 kubectl apply -f k8s/mlflow/pvc.yaml
 kubectl apply -f k8s/mlflow/deployment.yaml
 kubectl apply -f k8s/mlflow/service.yaml
 
+# ── 11. API ──────────────────────────────────────────────────────────────────
 info "Applying API..."
 kubectl apply -f k8s/api/secret-llm.yaml
 kubectl apply -f k8s/api/configmap.yaml
@@ -89,18 +103,20 @@ kubectl apply -f k8s/api/service.yaml
 info "Waiting for API to be ready..."
 kubectl rollout status deployment/api -n talentlens --timeout=180s
 
+# ── 12. Frontend ─────────────────────────────────────────────────────────────
 info "Applying frontend..."
 kubectl apply -f k8s/frontend/configmap.yaml
 kubectl apply -f k8s/frontend/deployment.yaml
 kubectl apply -f k8s/frontend/service.yaml
 
+# ── 13. Ingress + KEDA ───────────────────────────────────────────────────────
 info "Applying ingress..."
 kubectl apply -f k8s/ingress.yaml
 
 info "Applying KEDA ScaledObject..."
 kubectl apply -f k8s/keda/scaled-object.yaml
 
-# ── 7. Print access info ──────────────────────────────────────────────────────
+# ── 14. Print access info ─────────────────────────────────────────────────────
 MINIKUBE_IP=$(minikube ip)
 
 echo ""
