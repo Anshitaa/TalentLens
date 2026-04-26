@@ -1,0 +1,234 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  namespace: talentlens
+data:
+  01_schemas.sql: |
+    -- Runs automatically inside Docker on first start.
+    -- POSTGRES_USER=talentlens already exists (created by Docker env vars).
+    -- This file only creates schemas and tables.
+
+    CREATE SCHEMA IF NOT EXISTS raw;
+    CREATE SCHEMA IF NOT EXISTS staging;
+    CREATE SCHEMA IF NOT EXISTS mart;
+    CREATE SCHEMA IF NOT EXISTS audit;
+
+    GRANT USAGE ON SCHEMA raw, staging, mart, audit TO talentlens;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA raw, staging, mart, audit
+        GRANT ALL ON TABLES TO talentlens;
+
+    -- ─────────────────────────────────────────────────────────────────────────────
+    -- RAW SCHEMA
+    -- ─────────────────────────────────────────────────────────────────────────────
+
+    CREATE TABLE IF NOT EXISTS raw.hris_employee_snapshot (
+        employee_id                 UUID        PRIMARY KEY,
+        first_name                  TEXT        NOT NULL,
+        last_name                   TEXT        NOT NULL,
+        email                       TEXT        NOT NULL,
+        department                  TEXT        NOT NULL,
+        job_level                   TEXT        NOT NULL,
+        job_role                    TEXT        NOT NULL,
+        hire_date                   DATE        NOT NULL,
+        termination_date            DATE,
+        is_active                   BOOLEAN     NOT NULL DEFAULT TRUE,
+        monthly_income              NUMERIC(10,2) NOT NULL,
+        job_satisfaction            SMALLINT,
+        environment_satisfaction    SMALLINT,
+        work_life_balance           SMALLINT,
+        performance_rating          SMALLINT,
+        years_since_last_promotion  NUMERIC(5,2),
+        years_with_current_manager  NUMERIC(5,2),
+        years_at_company            NUMERIC(5,2),
+        distance_from_home          SMALLINT,
+        num_companies_worked        SMALLINT,
+        training_times_last_year    SMALLINT,
+        overtime_flag               BOOLEAN     NOT NULL DEFAULT FALSE,
+        education                   SMALLINT,
+        education_field             TEXT,
+        marital_status              TEXT,
+        gender                      TEXT,
+        age                         SMALLINT,
+        age_band                    TEXT,
+        manager_id                  UUID,
+        _ingested_at                TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_raw_emp_dept    ON raw.hris_employee_snapshot(department);
+    CREATE INDEX IF NOT EXISTS idx_raw_emp_active  ON raw.hris_employee_snapshot(is_active);
+    CREATE INDEX IF NOT EXISTS idx_raw_emp_mgr     ON raw.hris_employee_snapshot(manager_id);
+
+    CREATE TABLE IF NOT EXISTS raw.employee_events (
+        event_id        UUID        PRIMARY KEY,
+        employee_id     UUID        NOT NULL,
+        event_type      TEXT        NOT NULL,
+        event_date      DATE        NOT NULL,
+        department      TEXT,
+        payload         JSONB,
+        _ingested_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_raw_evt_employee ON raw.employee_events(employee_id);
+    CREATE INDEX IF NOT EXISTS idx_raw_evt_type     ON raw.employee_events(event_type);
+    CREATE INDEX IF NOT EXISTS idx_raw_evt_date     ON raw.employee_events(event_date);
+
+    CREATE TABLE IF NOT EXISTS raw.hiring_funnel_events (
+        event_id        UUID        PRIMARY KEY,
+        candidate_id    UUID        NOT NULL,
+        stage           TEXT        NOT NULL,
+        event_date      DATE        NOT NULL,
+        department      TEXT,
+        payload         JSONB,
+        _ingested_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_raw_funnel_cand  ON raw.hiring_funnel_events(candidate_id);
+    CREATE INDEX IF NOT EXISTS idx_raw_funnel_stage ON raw.hiring_funnel_events(stage);
+
+    -- ─────────────────────────────────────────────────────────────────────────────
+    -- MART SCHEMA
+    -- ─────────────────────────────────────────────────────────────────────────────
+
+    CREATE TABLE IF NOT EXISTS mart.feature_store (
+        employee_id                     UUID        PRIMARY KEY,
+        computed_at                     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        manager_changes_30d             SMALLINT    DEFAULT 0,
+        manager_changes_90d             SMALLINT    DEFAULT 0,
+        absence_rate_90d                NUMERIC(5,4) DEFAULT 0,
+        overtime_rate_180d              NUMERIC(5,4) DEFAULT 0,
+        monthly_income_vs_peer_median   NUMERIC(5,4),
+        income_peer_percentile          SMALLINT,
+        performance_rating_delta        NUMERIC(5,2),
+        training_count_90d              SMALLINT    DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS mart.fact_risk_scores (
+        score_id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+        employee_id         UUID        NOT NULL,
+        scoring_run_id      UUID,
+        scored_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        flight_risk_prob    NUMERIC(5,4),
+        anomaly_score       NUMERIC(8,4),
+        compliance_flag     BOOLEAN     NOT NULL DEFAULT FALSE,
+        risk_index          NUMERIC(5,2),
+        risk_band           TEXT,
+        shap_top_feature_1  TEXT,
+        shap_top_feature_2  TEXT,
+        shap_top_feature_3  TEXT,
+        shap_value_1        NUMERIC(8,4),
+        shap_value_2        NUMERIC(8,4),
+        shap_value_3        NUMERIC(8,4),
+        model_version       TEXT,
+        _loaded_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_fact_scores_emp    ON mart.fact_risk_scores(employee_id);
+    CREATE INDEX IF NOT EXISTS idx_fact_scores_at     ON mart.fact_risk_scores(scored_at);
+    CREATE INDEX IF NOT EXISTS idx_fact_scores_band   ON mart.fact_risk_scores(risk_band);
+
+    CREATE TABLE IF NOT EXISTS mart.mart_risk_index (
+        employee_id         UUID        PRIMARY KEY,
+        full_name           TEXT,
+        department          TEXT,
+        job_level           TEXT,
+        latest_risk_index   NUMERIC(5,2),
+        latest_risk_band    TEXT,
+        prev_risk_index     NUMERIC(5,2),
+        risk_delta          NUMERIC(5,2),
+        flight_risk_prob    NUMERIC(5,4),
+        anomaly_score       NUMERIC(8,4),
+        shap_top_feature_1  TEXT,
+        shap_top_feature_2  TEXT,
+        shap_top_feature_3  TEXT,
+        last_scored_at      TIMESTAMPTZ,
+        _updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS mart.fact_hiring_funnel (
+        funnel_id           BIGSERIAL   PRIMARY KEY,
+        candidate_id        UUID        NOT NULL,
+        department          TEXT,
+        application_date    DATE,
+        screen_date         DATE,
+        interview_date      DATE,
+        offer_date          DATE,
+        outcome             TEXT,
+        offered_salary      NUMERIC(10,2),
+        days_to_screen      SMALLINT,
+        days_to_interview   SMALLINT,
+        days_to_offer       SMALLINT,
+        days_to_close       SMALLINT,
+        _loaded_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    -- ─────────────────────────────────────────────────────────────────────────────
+    -- AUDIT SCHEMA
+    -- ─────────────────────────────────────────────────────────────────────────────
+
+    CREATE TABLE IF NOT EXISTS audit.model_decisions (
+        decision_id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+        employee_id         UUID        NOT NULL,
+        model_id            UUID,
+        model_version       TEXT,
+        decision_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        input_features      JSONB,
+        flight_risk_prob    NUMERIC(5,4),
+        anomaly_score       NUMERIC(8,4),
+        risk_index          NUMERIC(5,2),
+        risk_band           TEXT,
+        kafka_message_id    TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_audit_dec_emp ON audit.model_decisions(employee_id);
+    CREATE INDEX IF NOT EXISTS idx_audit_dec_at  ON audit.model_decisions(decision_at);
+
+    CREATE TABLE IF NOT EXISTS audit.hitl_overrides (
+        override_id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+        employee_id         UUID        NOT NULL,
+        reviewer_id         TEXT        NOT NULL,
+        original_risk_index NUMERIC(5,2),
+        override_label      SMALLINT,
+        reason              TEXT        NOT NULL,
+        notes               TEXT,
+        override_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS audit.active_learning_labels (
+        label_id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+        employee_id         UUID        NOT NULL,
+        feature_snapshot    JSONB,
+        corrected_label     SMALLINT    NOT NULL,
+        confidence          TEXT        NOT NULL DEFAULT 'human_verified',
+        labeled_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        used_in_training    BOOLEAN     NOT NULL DEFAULT FALSE,
+        training_run_id     TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS audit.drift_reports (
+        report_id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+        run_date            DATE        NOT NULL,
+        model_version       TEXT,
+        psi_score           NUMERIC(8,4),
+        feature_psi_detail  JSONB,
+        retrain_triggered   BOOLEAN     NOT NULL DEFAULT FALSE,
+        created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS audit.producer_watermarks (
+        topic       TEXT        PRIMARY KEY,
+        value       TEXT        NOT NULL,
+        updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS audit.llm_costs (
+        cost_id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+        provider            TEXT        NOT NULL,
+        model               TEXT        NOT NULL,
+        endpoint            TEXT,
+        input_tokens        INTEGER,
+        output_tokens       INTEGER,
+        estimated_cost_usd  NUMERIC(10,6),
+        request_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        session_id          TEXT
+    );

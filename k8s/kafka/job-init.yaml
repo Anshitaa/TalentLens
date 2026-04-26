@@ -1,0 +1,50 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-init
+  namespace: talentlens
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: kafka-init
+          image: confluentinc/cp-kafka:7.5.0
+          command:
+            - /bin/bash
+            - -c
+            - |
+              echo "Waiting for Kafka to be ready..."
+              until kafka-topics --bootstrap-server kafka:9092 --list; do
+                echo "Kafka not ready yet, retrying in 5s..."
+                sleep 5
+              done
+
+              echo "Creating topics..."
+
+              kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists \
+                --topic employee-events \
+                --partitions 6 \
+                --replication-factor 1 \
+                --config retention.ms=604800000
+
+              kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists \
+                --topic risk-score-updates \
+                --partitions 3 \
+                --replication-factor 1 \
+                --config retention.ms=259200000
+
+              kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists \
+                --topic audit-log \
+                --partitions 3 \
+                --replication-factor 1 \
+                --config retention.ms=2592000000
+
+              kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists \
+                --topic hiring-funnel-events \
+                --partitions 3 \
+                --replication-factor 1 \
+                --config retention.ms=604800000
+
+              echo "Topics created:"
+              kafka-topics --bootstrap-server kafka:9092 --list
