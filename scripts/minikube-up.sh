@@ -25,7 +25,7 @@ warn()  { echo -e "${YELLOW}[warn]${NC} $*"; }
 info "Checking minikube..."
 if ! minikube status 2>/dev/null | grep -q "Running"; then
   info "Starting minikube (4 CPUs, 8 GB RAM)..."
-  minikube start --cpus 4 --memory 8192 --driver docker
+  minikube start --cpus 4 --memory 7500 --driver docker
 fi
 
 # ── 2. Enable required addons ─────────────────────────────────────────────────

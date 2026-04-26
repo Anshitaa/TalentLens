@@ -33,14 +33,12 @@ spec:
             - name: KAFKA_LOG_RETENTION_HOURS
               value: "168"
           readinessProbe:
-            exec:
-              command:
-                - kafka-topics
-                - --bootstrap-server
-                - localhost:9092
-                - --list
-            initialDelaySeconds: 20
-            periodSeconds: 10
+            tcpSocket:
+              port: 9092
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 12
           resources:
             requests:
               cpu: 250m
