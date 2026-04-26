@@ -22,7 +22,7 @@ spec:
             - mlflow
             - server
             - --backend-store-uri
-            - postgresql://talentlens:talentlens@postgres:5432/talentlens
+            - sqlite:////mlflow/artifacts/mlflow.db
             - --default-artifact-root
             - /mlflow/artifacts
             - --host
