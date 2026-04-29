@@ -1,5 +1,7 @@
 # Secrets — NEVER commit
 .env
+frontend/.env.local
+frontend/.env.production
 
 # Python
 __pycache__/

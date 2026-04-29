@@ -8,10 +8,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies from project root requirements
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir sentence-transformers==2.7.0
+# Use slim production requirements (no PySpark / sentence-transformers / SHAP)
+COPY api/requirements-prod.txt .
+RUN pip install --no-cache-dir -r requirements-prod.txt
 
 # Copy entire project (api imports ml/, llm/ as sibling packages)
 COPY . .
