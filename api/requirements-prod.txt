@@ -1,0 +1,30 @@
+# Slim requirements for the production API container (Render free tier).
+# Heavy ML/LLM deps are optional — the API degrades gracefully without them.
+
+# ── Server ────────────────────────────────────────────────────
+fastapi==0.110.1
+uvicorn[standard]==0.29.0
+pydantic==2.7.0
+pydantic-settings==2.2.1
+
+# ── Database ──────────────────────────────────────────────────
+psycopg2-binary==2.9.9
+
+# ── Data ──────────────────────────────────────────────────────
+numpy==1.26.4
+pandas==2.2.1
+python-dotenv==1.0.1
+
+# ── HTTP ──────────────────────────────────────────────────────
+httpx==0.27.0
+
+# ── Optional: AI agent (set GEMINI_API_KEY env var to enable) ─
+# Comment these out to make the image even smaller (~300 MB)
+langchain==0.1.16
+langchain-google-genai==1.0.3
+google-generativeai==0.5.4
+anthropic==0.25.0
+openai==1.23.1
+
+# ── Optional: MLflow model registry display ────────────────────
+mlflow==2.12.1

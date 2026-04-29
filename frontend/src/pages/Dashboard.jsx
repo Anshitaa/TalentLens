@@ -17,7 +17,8 @@ export default function Dashboard() {
       .then(([s, t, d]) => { setSummary(s); setTop(t); setByDept(d); })
       .catch(e => setErr(e.message));
 
-    const socket = new WebSocket("ws://127.0.0.1:8000/ws/dashboard");
+    const wsBase = import.meta.env.VITE_WS_BASE_URL ?? "ws://127.0.0.1:8000";
+    const socket = new WebSocket(`${wsBase}/ws/dashboard`);
     socket.onmessage = e => { try { setLive(JSON.parse(e.data)); } catch {} };
     socket.onerror = () => {};
     return () => socket.close();

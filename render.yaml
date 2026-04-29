@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: talentlens-api
+    runtime: docker
+    dockerfilePath: ./api/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false          # Set manually in Render dashboard (paste Neon connection string)
+      - key: GEMINI_API_KEY
+        sync: false          # Optional — enables the AI agent chat feature
+      - key: PYTHONUNBUFFERED
+        value: "1"
