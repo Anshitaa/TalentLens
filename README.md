@@ -175,5 +175,5 @@ minikube service api --url
 
 ---
 
-*Anshita Bhardwaj — MS Data Science, Arizona State University (May 2026)*  
-*Target: ML Engineering / Data Engineering roles — AmEx · Tesla · Amazon · PayPal*
+*Anshita Bhardwaj — MS Data Science, Arizona State University (August 2026)*  
+
