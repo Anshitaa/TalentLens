@@ -2,7 +2,7 @@
 
 **Model:** `talentlens-flight-risk`
 **Version:** 1.0.0
-**Generated:** 2026-04-23
+**Generated:** 2026-10-29
 **Scored population:** 30,824 active employees
 
 ---
@@ -24,11 +24,11 @@
 
 | Metric | Value |
 |---|---|
-| ROC-AUC | 1.0 |
-| PR-AUC | 1.0 |
-| F1 Score | 1.0 |
-| Precision | 1.0 |
-| Recall | 1.0 |
+| ROC-AUC | 0.9967 |
+| PR-AUC | 0.9936 |
+| F1 Score | 0.9513 |
+| Precision | 0.9287 |
+| Recall | 0.975 |
 | Threshold | 0.40 (optimised for recall on attrition minority class) |
 
 > **Note on synthetic data:** The model achieves near-perfect AUC because the
@@ -42,9 +42,9 @@
 
 | Band | Count | % |
 |---|---|---|
-| Low | 28629 | 92.9% |
-| Medium | 2191 | 7.1% |
-| High | 4 | 0.0% |
+| Low | 26700 | 86.6% |
+| Medium | 4092 | 13.3% |
+| High | 32 | 0.1% |
 | Critical | 0 | 0.0% |
 
 ---
@@ -55,9 +55,9 @@ Threshold: demographic parity difference > 0.10 flagged.
 
 | Sensitive Feature | Demographic Parity Diff | Equalized Odds Diff | Status |
 |---|---|---|---|
-| gender | 0.0295 | 0.0001 | ✓ Pass |
-| department | 0.2595 | 0.0028 | ⚠ Flag |
-| age_band | 0.0269 | 0.0003 | ✓ Pass |
+| gender | 0.0296 | 0.0069 | ✓ Pass |
+| department | 0.2793 | 0.0428 | ⚠ Flag |
+| age_band | 0.0256 | 0.0073 | ✓ Pass |
 
 
 **Actionable:** Department shows demographic parity gap (0.26).
@@ -70,9 +70,9 @@ bands reflects genuine risk signal or department-level data artefacts.
 
 | Metric | Value |
 |---|---|
-| Overall PSI | 0.5271 |
-| Interpretation | significant shift — retrain recommended |
-| Retrain triggered | True |
+| Overall PSI | 0.0249 |
+| Interpretation | stable |
+| Retrain triggered | False |
 
 **Highest-drift features:**
 - `performance_rating_delta` — PSI high because training set includes all employees

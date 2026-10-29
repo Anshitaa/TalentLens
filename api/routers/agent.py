@@ -71,7 +71,7 @@ def chat(body: ChatRequest):
         )
 
     try:
-        result = _react_agent_module.chat(message=body.message, provider=provider)
+        result = _react_agent_module.chat(message=body.message, provider_tier=provider)
 
         # Normalise the return value: accept str or dict with 'response' / 'tool_calls_used'
         if isinstance(result, str):
