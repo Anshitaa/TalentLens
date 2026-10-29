@@ -68,7 +68,7 @@ def submit_hitl_override(body: OverrideRequest, db=Depends(get_db)):
 
 @router.get("/overrides")
 def list_overrides(db=Depends(get_db)):
-    """Return the last 100 HITL overrides from audit.hitl_overrides."""
+    """Return the last 500 HITL overrides (the governance KPI counts this list)."""
     try:
         with db.cursor() as cur:
             cur.execute(
@@ -76,7 +76,7 @@ def list_overrides(db=Depends(get_db)):
                 SELECT *
                 FROM audit.hitl_overrides
                 ORDER BY override_at DESC
-                LIMIT 100
+                LIMIT 500
                 """
             )
             rows = cur.fetchall()

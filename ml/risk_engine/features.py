@@ -32,8 +32,16 @@ FEATURE_COLS = [
     # Rolling behavioural features (from feature_store)
     "manager_changes_30d", "manager_changes_90d",
     "absence_rate_90d", "overtime_rate_180d",
+    "training_count_90d",
+]
+
+# Excluded — target leakage. spark/peer_percentile_job.py computes these for
+# active employees only, so every attrited employee gets the COALESCE default
+# (0 / 2) and the model learns "default value ⇒ left" (val ROC-AUC was 1.0).
+# Peer pay is still covered for everyone by income_vs_peer_median_pct above.
+LEAKY_FEATURE_COLS = [
     "monthly_income_vs_peer_median", "income_peer_percentile",
-    "performance_rating_delta", "training_count_90d",
+    "performance_rating_delta",
 ]
 
 TARGET_COL = "has_attrited"

@@ -64,7 +64,9 @@ def main(score_only: bool = False):
             xgb_model, xgb_metrics = train_attrition.train(X_all, y_all, mlflow_run=run)
 
             print("\n[3/5] Training Isolation Forest anomaly detector ...")
-            if_model, if_scaler, if_metrics = train_anomaly.train(X_active, mlflow_run=run)
+            # Unsupervised and active-only, so it can use the full column set
+            # (incl. LEAKY_FEATURE_COLS) — matches what inference.run passes it.
+            if_model, if_scaler, if_metrics = train_anomaly.train(df_active, mlflow_run=run)
         else:
             print("\n[2/5] Loading latest registered models ...")
             xgb_model = mlflow.xgboost.load_model("models:/talentlens-flight-risk/latest")
